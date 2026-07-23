@@ -12,9 +12,33 @@ const state = {
   zoomDragging: false,
   zoomPointerX: 0,
   zoomPointerY: 0,
+  animalFilter: null,
+  filterIndices: [],
+  filterPos: 0,
 };
 
 const el = (id) => document.getElementById(id);
+
+const ANIMAL_SHORTCUTS = {
+  b: "boar（イノシシ）",
+  k: "bear（クマ）",
+  t: "racoondog（タヌキ）",
+  h: "man（ヒト）",
+  c: "car（クルマ）",
+  u: "maskedmusang（ハクビシン）",
+  i: "dog（イヌ）",
+  n: "cat（ネコ）",
+  s: "deer（シカ）",
+  f: "fox（キツネ）",
+  w: "serow（カモシカ）",
+  r: "rabbit（ウサギ）",
+  o: "craw（カラス）",
+  m: "monkey（サル）",
+  g: "badger（アナグマ）",
+  v: "racoon（アライグマ）",
+  q: "?",
+  x: "いない",
+};
 
 async function api(url, options = {}) {
   const response = await fetch(url, {
@@ -208,6 +232,7 @@ async function openFolder() {
     payload.animals.forEach((animal) => bulkSelect.add(new Option(animal, animal)));
     updateSummary(payload);
     renderRow(payload.row);
+    clearAnimalFilter();
     el("setupPanel").classList.add("hidden");
     el("reviewPanel").classList.remove("hidden");
     el("progressBlock").classList.remove("hidden");
@@ -226,10 +251,71 @@ async function loadRow(index) {
     const payload = await api(`/api/row/${bounded}`);
     updateSummary(payload);
     renderRow(payload.row);
+    if (state.animalFilter) {
+      const pos = state.filterIndices.indexOf(bounded);
+      if (pos === -1) {
+        clearAnimalFilter();
+      } else {
+        state.filterPos = pos;
+      }
+    }
   } catch (error) {
     showError(el("saveError"), error.message);
   } finally {
     setBusy(false);
+  }
+}
+
+async function stepImage(delta) {
+  if (state.animalFilter) {
+    const newPos = state.filterPos + delta;
+    if (newPos < 0 || newPos >= state.filterIndices.length) return;
+    await moveTo(state.filterIndices[newPos]);
+  } else {
+    await moveTo(state.currentIndex + delta);
+  }
+}
+
+async function activateAnimalFilter(animalName) {
+  if (state.loading) return;
+  if (state.dirty) {
+    const saved = await saveCurrent(false);
+    if (!saved) return;
+  }
+  setBusy(true);
+  try {
+    const payload = await api(`/api/animal-indices/${encodeURIComponent(animalName)}`);
+    if (payload.indices.length === 0) {
+      setBusy(false);
+      showError(el("saveError"), `${animalName} の画像はありません。`);
+      return;
+    }
+    state.animalFilter = animalName;
+    state.filterIndices = payload.indices;
+    state.filterPos = 0;
+    updateFilterBadge();
+    setBusy(false);
+    await loadRow(state.filterIndices[0]);
+  } catch (error) {
+    setBusy(false);
+    showError(el("saveError"), error.message);
+  }
+}
+
+function clearAnimalFilter() {
+  state.animalFilter = null;
+  state.filterIndices = [];
+  state.filterPos = 0;
+  updateFilterBadge();
+}
+
+function updateFilterBadge() {
+  const badge = el("filterBadge");
+  if (state.animalFilter) {
+    badge.textContent = `絞り込み中: ${state.animalFilter}（Escで解除）`;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
   }
 }
 
@@ -375,9 +461,8 @@ function updateBulkCountState() {
 el("bulkAnimalSelect").addEventListener("change", updateBulkCountState);
 
 el("saveNextButton").addEventListener("click", () => saveCurrent(true));
-el("holdButton").addEventListener("click", () => holdCurrent(true));
-el("previousButton").addEventListener("click", () => moveTo(state.currentIndex - 1));
-el("nextButton").addEventListener("click", () => moveTo(state.currentIndex + 1));
+el("previousButton").addEventListener("click", () => stepImage(-1));
+el("nextButton").addEventListener("click", () => stepImage(1));
 el("nextIncompleteButton").addEventListener("click", nextIncomplete);
 el("nextHoldButton").addEventListener("click", nextHold);
 el("returnCurrentButton").addEventListener("click", showCurrentImage);
@@ -429,12 +514,22 @@ document.addEventListener("keydown", (event) => {
   } else if (event.key === "Enter" && event.target.tagName !== "BUTTON") {
     event.preventDefault();
     saveCurrent(true);
-  } else if (event.key === "ArrowLeft" && !["INPUT", "SELECT"].includes(event.target.tagName)) {
-    moveTo(state.currentIndex - 1);
-  } else if (event.key === "ArrowRight" && !["INPUT", "SELECT"].includes(event.target.tagName)) {
-    moveTo(state.currentIndex + 1);
+  } else if (["ArrowLeft", "a", "A"].includes(event.key) && !["INPUT", "SELECT"].includes(event.target.tagName)) {
+    stepImage(-1);
+  } else if (["ArrowRight", "d", "D"].includes(event.key) && !["INPUT", "SELECT"].includes(event.target.tagName)) {
+    stepImage(1);
+  } else if (
+    !el("singleMode").classList.contains("hidden") &&
+    !el("zoomDialog").open &&
+    !event.ctrlKey && !event.metaKey && !event.altKey &&
+    !["INPUT", "SELECT"].includes(event.target.tagName) &&
+    ANIMAL_SHORTCUTS[event.key.toLowerCase()]
+  ) {
+    activateAnimalFilter(ANIMAL_SHORTCUTS[event.key.toLowerCase()]);
   } else if (event.key === "Escape" && el("zoomDialog").open) {
     el("zoomDialog").close();
+  } else if (event.key === "Escape" && state.animalFilter) {
+    clearAnimalFilter();
   } else if (event.key === "Escape" && !el("gridMode").classList.contains("hidden")) {
     gridState.checkedIndices.clear();
     document.querySelectorAll(".grid-card").forEach(c => c.classList.remove("checked"));

@@ -1,0 +1,14 @@
+[project]
+name = "visual-inspection-support-system-dev"
+version = "0.1.0"
+description = "動物画像 目視確認アシスト"
+requires-python = ">=3.10"
+dependencies = [
+    "flask==3.1.1",
+    "openpyxl==3.1.5",
+]
+
+[tool.uv]
+# システムのPythonはtkinter(Tk)を含まないことが多く、フォルダ選択ダイアログが
+# 動作しなくなるため、Tkinterを同梱したuv管理のPythonを優先的に使用する。
+python-preference = "only-managed"

@@ -1,4 +1,0 @@
-Row 1: [None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
-Row 2: [None, '装置番号: 003003', '解析画像数: 0/1438', '解析日: 260721', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
-Row 3: [None, 'ファイル名', 'ファイル更新日時', '動物名', '目視による動物名', '数', '目視による数', 'デバイス', '最大確信度', 'メール周知', '実際のメール周知', '追い払い', None, None, None, None, None, None, None, None, None]
-Row 4: [None, '003_003_2026.06.28.1012_0.jpg', datetime.datetime(2026, 7, 21, 13, 56, 18, 539000), 'man（ヒト）', None, 1, 1, 'サーバー', 0.902529, None, None, None, None, None, None, None, None, None, None, None, None]

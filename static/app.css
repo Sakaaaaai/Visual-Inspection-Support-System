@@ -144,6 +144,7 @@ input:disabled { color: #7a857e; background: #edf0ed; }
 .badge.status.pending { color: var(--amber); background: var(--amber-soft); }
 .badge.status.hold { color: #c25f00; background: #fff3e0; }
 .badge.reference { color: #174b77; background: #e2f0fb; }
+.badge.filter { color: var(--amber); background: var(--amber-soft); }
 
 .image-stage {
   grid-column: 2;

@@ -217,6 +217,18 @@ def get_animals():
         return _error(str(exc))
 
 
+@app.get("/api/animal-indices/<animal_name>")
+def get_animal_indices(animal_name: str):
+    try:
+        with session_lock:
+            book = _require_session()
+            groups = book.rows_by_animal()
+            indices = groups.get(animal_name, [])
+            return jsonify({"ok": True, "animal": animal_name, "indices": indices})
+    except (OSError, WorkbookFormatError, ValueError) as exc:
+        return _error(str(exc))
+
+
 @app.get("/api/grid/<animal_name>")
 def get_grid(animal_name: str):
     try:
@@ -329,7 +341,10 @@ def main():
     url = "http://127.0.0.1:8765"
     if os.environ.get("ANIMAL_ASSISTANT_NO_BROWSER") != "1":
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    app.run(host="127.0.0.1", port=8765, debug=False, threaded=True, use_reloader=False)
+    # threaded=False: choose_folder() opens a tkinter dialog, which on macOS must run
+    # on the main thread. A threaded server would dispatch it to a worker thread and
+    # hang/crash. This app is single-user/local, so serializing requests is fine.
+    app.run(host="127.0.0.1", port=8765, debug=False, threaded=False, use_reloader=False)
 
 
 if __name__ == "__main__":
