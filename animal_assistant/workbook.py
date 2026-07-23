@@ -48,6 +48,8 @@ class ColumnMap:
     device: int
     manual_animal: int
     manual_count: int
+    ai_animal: int
+    ai_confidence: int
 
 
 def _text(value: Any) -> str:
@@ -187,10 +189,28 @@ class AnimalWorkbook:
                             found[key] = column
                             break
                 if len(found) == len(required):
+                    ai_animal, ai_confidence = self._ensure_ai_columns(sheet, row_number, headers)
+                    found["ai_animal"] = ai_animal
+                    found["ai_confidence"] = ai_confidence
                     return sheet, row_number, ColumnMap(**found)
         raise WorkbookFormatError(
             "必要な列（ファイル名、動物名、数、デバイス、目視による動物名、目視による数）が見つかりません。"
         )
+
+    @staticmethod
+    def _ensure_ai_columns(sheet, row_number: int, headers: dict[str, int]) -> tuple[int, int]:
+        """Find or create the columns used to store CLIP-based AI re-predictions."""
+        ai_animal = headers.get(_normalized("AI再判定"))
+        ai_confidence = headers.get(_normalized("AI確信度"))
+        next_column = sheet.max_column + 1
+        if ai_animal is None:
+            ai_animal = next_column
+            sheet.cell(row_number, ai_animal).value = "AI再判定"
+            next_column += 1
+        if ai_confidence is None:
+            ai_confidence = next_column
+            sheet.cell(row_number, ai_confidence).value = "AI確信度"
+        return ai_animal, ai_confidence
 
     def _read_metadata(self) -> tuple[str, str]:
         values = []
@@ -357,6 +377,8 @@ class AnimalWorkbook:
         displayed_count = "" if ui_selected_animal in ("いない", "保留") else (
             manual_count if manual_count not in (None, "") else predicted_count
         )
+        ai_animal = _text(self.sheet.cell(excel_row, self.columns.ai_animal).value)
+        ai_confidence = self.sheet.cell(excel_row, self.columns.ai_confidence).value
         return {
             "index": index,
             "excelRow": excel_row,
@@ -371,6 +393,8 @@ class AnimalWorkbook:
             "imagePath": str(image_path) if image_path else "",
             "pathError": path_error,
             "contextImages": self.context_images(index),
+            "aiAnimal": ai_animal,
+            "aiConfidence": ai_confidence,
         }
 
     def completed_count(self) -> int:
@@ -511,6 +535,23 @@ class AnimalWorkbook:
             self._save_atomic()
         except Exception:
             animal_cell.value, count_cell.value = previous
+            raise
+        return self.row_data(index)
+
+    def save_ai_prediction(self, index: int, animal: str, confidence: float) -> dict[str, Any]:
+        """Store a CLIP-based AI re-prediction for a row, separate from the device/server prediction."""
+        if index < 0 or index >= len(self.rows):
+            raise IndexError("対象行が範囲外です。")
+        row = self.rows[index]
+        animal_cell = self.sheet.cell(row, self.columns.ai_animal)
+        confidence_cell = self.sheet.cell(row, self.columns.ai_confidence)
+        previous = (animal_cell.value, confidence_cell.value)
+        animal_cell.value = animal
+        confidence_cell.value = round(confidence, 4)
+        try:
+            self._save_atomic()
+        except Exception:
+            animal_cell.value, confidence_cell.value = previous
             raise
         return self.row_data(index)
 

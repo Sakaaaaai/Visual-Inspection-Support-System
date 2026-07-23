@@ -91,6 +91,18 @@
 
           <div class="divider"></div>
 
+          <p class="section-label">AI再判定（実験的・汎用CLIPモデル）</p>
+          <div class="prediction-grid">
+            <div><span>AI再判定</span><strong id="aiAnimalValue">未実行</strong></div>
+            <div><span>確信度</span><strong id="aiConfidenceValue"></strong></div>
+          </div>
+          <button id="aiInferButton" class="button secondary full" type="button">この画像をAIで再判定</button>
+          <button id="aiInferBatchButton" class="button ghost full" type="button">未判定をまとめてAIで推論</button>
+          <p id="aiInferStatus" class="save-status" aria-live="polite"></p>
+          <p id="aiInferError" class="error-message hidden"></p>
+
+          <div class="divider"></div>
+
           <p class="section-label">目視結果</p>
           <label class="field-label" for="animalSelect">動物名</label>
           <select id="animalSelect"></select>

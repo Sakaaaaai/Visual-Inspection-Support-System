@@ -15,6 +15,7 @@ const state = {
   animalFilter: null,
   filterIndices: [],
   filterPos: 0,
+  aiBatchRunning: false,
 };
 
 const el = (id) => document.getElementById(id);
@@ -57,7 +58,7 @@ function showError(target, message) {
 
 function setBusy(busy) {
   state.loading = busy;
-  ["browseButton", "openButton", "saveNextButton", "holdButton", "previousButton", "nextButton", "nextIncompleteButton", "nextHoldButton", "bulkConfirmButton", "bulkHoldButton"]
+  ["browseButton", "openButton", "saveNextButton", "holdButton", "previousButton", "nextButton", "nextIncompleteButton", "nextHoldButton", "bulkConfirmButton", "bulkHoldButton", "aiInferButton"]
     .forEach((id) => { if (el(id)) el(id).disabled = busy; });
 }
 
@@ -85,10 +86,13 @@ function renderRow(row, options = {}) {
   el("predictedAnimal").textContent = row.predictedAnimal || "（空欄）";
   el("predictedCount").textContent = row.predictedCount ?? "（空欄）";
   el("deviceValue").textContent = row.device || "（空欄）";
+  el("aiAnimalValue").textContent = row.aiAnimal || "未実行";
+  el("aiConfidenceValue").textContent = row.aiConfidence != null ? `${Math.round(row.aiConfidence * 100)}%` : "";
   el("animalSelect").value = row.selectedAnimal;
   el("countInput").value = row.manualCount ?? "";
   updateCountState();
   showError(el("saveError"), "");
+  showError(el("aiInferError"), "");
   if (!options.keepStatus) el("saveStatus").textContent = "";
 
   renderContextImages(row);
@@ -319,6 +323,56 @@ function updateFilterBadge() {
   }
 }
 
+async function runAiInferSingle() {
+  if (state.loading || state.total === 0) return;
+  setBusy(true);
+  showError(el("aiInferError"), "");
+  el("aiInferStatus").textContent = "AI推論中…";
+  try {
+    const payload = await api(`/api/ai-infer/${state.currentIndex}`, { method: "POST" });
+    renderRow(payload.row, { keepStatus: true });
+    el("aiInferStatus").textContent = "AI推論が完了しました。";
+  } catch (error) {
+    el("aiInferStatus").textContent = "";
+    showError(el("aiInferError"), error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function runAiInferBatch() {
+  if (state.aiBatchRunning) {
+    state.aiBatchRunning = false;
+    return;
+  }
+  state.aiBatchRunning = true;
+  el("aiInferBatchButton").textContent = "停止";
+  showError(el("aiInferError"), "");
+  try {
+    while (state.aiBatchRunning) {
+      const payload = await api("/api/ai-infer-batch", {
+        method: "POST",
+        body: JSON.stringify({ limit: 20 }),
+      });
+      el("aiInferStatus").textContent = `AI一括推論を実行中… 残り ${payload.remaining.toLocaleString()} 件`;
+      if (payload.processed.includes(state.currentIndex)) {
+        await loadRow(state.currentIndex);
+      }
+      if (payload.processed.length === 0 || payload.remaining === 0) {
+        el("aiInferStatus").textContent = payload.remaining === 0
+          ? "すべての画像のAI推論が完了しました。"
+          : "対象の画像がありません。";
+        break;
+      }
+    }
+  } catch (error) {
+    showError(el("aiInferError"), error.message);
+  } finally {
+    state.aiBatchRunning = false;
+    el("aiInferBatchButton").textContent = "未判定をまとめてAIで推論";
+  }
+}
+
 async function saveCurrent(advance = false) {
   if (state.loading || state.total === 0) return false;
   setBusy(true);
@@ -460,6 +514,8 @@ function updateBulkCountState() {
 }
 el("bulkAnimalSelect").addEventListener("change", updateBulkCountState);
 
+el("aiInferButton").addEventListener("click", runAiInferSingle);
+el("aiInferBatchButton").addEventListener("click", runAiInferBatch);
 el("saveNextButton").addEventListener("click", () => saveCurrent(true));
 el("previousButton").addEventListener("click", () => stepImage(-1));
 el("nextButton").addEventListener("click", () => stepImage(1));
