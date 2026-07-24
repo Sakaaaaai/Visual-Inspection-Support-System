@@ -132,30 +132,6 @@
       <div id="gridMode" class="grid-mode hidden">
         <aside id="animalSidebar" class="animal-sidebar"></aside>
         <div class="grid-main">
-          <div class="grid-toolbar">
-            <div id="gridInfo" class="grid-info"></div>
-            <div class="grid-actions">
-              <button id="selectAllButton" class="button secondary" type="button">全て選択</button>
-              <button id="deselectAllButton" class="button secondary" type="button">選択解除</button>
-              <label style="font-size: 11px; margin-left: 10px;">縦:</label>
-              <select id="gridRows" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--line);">
-                <option value="2">2</option>
-                <option value="3" selected>3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-              </select>
-              <label style="font-size: 11px; margin-left: 5px;">横:</label>
-              <select id="gridCols" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--line);">
-                <option value="3">3</option>
-                <option value="4" selected>4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-              </select>
-            </div>
-          </div>
           <p id="gridError" class="error-message hidden"></p>
           <div id="imageGrid" class="image-grid"></div>
           <div id="gridPagination" class="grid-pagination"></div>
@@ -172,8 +148,35 @@
 
           <p id="gridStatus" class="save-status" aria-live="polite"></p>
 
-          <button id="bulkConfirmButton" class="button primary full" type="button" style="margin-top: 10px;">チェック済みを一括保存</button>
-          <button id="bulkHoldButton" class="button hold full" type="button" style="margin-top: 6px;">チェック済みを保留にする</button>
+          <button id="bulkConfirmButton" class="button primary full" type="button" style="margin-top: 10px;">保存</button>
+          <button id="bulkHoldButton" class="button hold full" type="button" style="margin-top: 6px;">保留</button>
+
+          <div class="divider"></div>
+
+          <p id="gridInfo" class="grid-info" style="font-size: 13px; font-weight: 700; margin: 0 0 8px;"></p>
+          <div class="grid-actions" style="flex-wrap: wrap; gap: 6px;">
+            <button id="selectAllButton" class="button secondary" type="button">全て選択</button>
+            <button id="deselectAllButton" class="button secondary" type="button">選択解除</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 8px;">
+            <label style="font-size: 11px;">縦:</label>
+            <select id="gridRows" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--line);">
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+            <label style="font-size: 11px; margin-left: 5px;">横:</label>
+            <select id="gridCols" style="padding: 2px 4px; border-radius: 4px; border: 1px solid var(--line);">
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+            </select>
+          </div>
         </aside>
       </div>
     </section>

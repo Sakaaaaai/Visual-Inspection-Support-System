@@ -647,9 +647,17 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     saveCurrent(true);
   } else if (["ArrowLeft", "a", "A"].includes(event.key) && !["INPUT", "SELECT"].includes(event.target.tagName)) {
-    stepImage(-1);
+    if (!el("gridMode").classList.contains("hidden") && gridState.currentAnimal) {
+      if (gridState.currentPage > 0) loadGrid(gridState.currentAnimal, gridState.currentPage - 1);
+    } else {
+      stepImage(-1);
+    }
   } else if (["ArrowRight", "d", "D"].includes(event.key) && !["INPUT", "SELECT"].includes(event.target.tagName)) {
-    stepImage(1);
+    if (!el("gridMode").classList.contains("hidden") && gridState.currentAnimal) {
+      if (gridState.currentPage < gridState.totalPages - 1) loadGrid(gridState.currentAnimal, gridState.currentPage + 1);
+    } else {
+      stepImage(1);
+    }
   } else if (
     !el("singleMode").classList.contains("hidden") &&
     !el("zoomDialog").open &&
