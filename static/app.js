@@ -492,6 +492,82 @@ async function nextHold() {
   }
 }
 
+/* ── Display Settings (background/theme colors) ── */
+
+const SETTINGS_STORAGE_KEY = "visualInspectionDisplaySettings";
+const DEFAULT_SETTINGS = { canvasBg: "#f1f4ef", theme: "#1c6844" };
+
+function hexToRgb(hex) {
+  const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
+  return match
+    ? { r: parseInt(match[1], 16), g: parseInt(match[2], 16), b: parseInt(match[3], 16) }
+    : { r: 0, g: 0, b: 0 };
+}
+
+function rgbToHex({ r, g, b }) {
+  const clamp = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  return `#${clamp(r)}${clamp(g)}${clamp(b)}`;
+}
+
+function mixColors(hexA, hexB, amount) {
+  const a = hexToRgb(hexA);
+  const b = hexToRgb(hexB);
+  return rgbToHex({
+    r: a.r + (b.r - a.r) * amount,
+    g: a.g + (b.g - a.g) * amount,
+    b: a.b + (b.b - a.b) * amount,
+  });
+}
+
+function loadDisplaySettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+function applyDisplaySettings(settings) {
+  const root = document.documentElement.style;
+  const { r, g, b } = hexToRgb(settings.theme);
+  root.setProperty("--green", settings.theme);
+  root.setProperty("--green-rgb", `${r}, ${g}, ${b}`);
+  root.setProperty("--green-dark", mixColors(settings.theme, "#000000", 0.28));
+  root.setProperty("--green-soft", mixColors(settings.theme, "#ffffff", 0.88));
+  root.setProperty("--header-dark", mixColors(settings.theme, "#000000", 0.45));
+  root.setProperty("--header-light", mixColors(settings.theme, "#ffffff", 0.22));
+  root.setProperty("--canvas", settings.canvasBg);
+}
+
+const displaySettings = loadDisplaySettings();
+applyDisplaySettings(displaySettings);
+el("colorCanvasBg").value = displaySettings.canvasBg;
+el("colorTheme").value = displaySettings.theme;
+
+function updateDisplaySettingsFromInputs() {
+  displaySettings.canvasBg = el("colorCanvasBg").value;
+  displaySettings.theme = el("colorTheme").value;
+  applyDisplaySettings(displaySettings);
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(displaySettings));
+}
+
+el("colorCanvasBg").addEventListener("input", updateDisplaySettingsFromInputs);
+el("colorTheme").addEventListener("input", updateDisplaySettingsFromInputs);
+
+el("openSettingsButton").addEventListener("click", () => el("settingsDialog").showModal());
+el("closeSettingsButton").addEventListener("click", () => el("settingsDialog").close());
+el("settingsDialog").addEventListener("click", (event) => {
+  if (event.target === el("settingsDialog")) el("settingsDialog").close();
+});
+el("resetSettingsButton").addEventListener("click", () => {
+  Object.assign(displaySettings, DEFAULT_SETTINGS);
+  applyDisplaySettings(displaySettings);
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(displaySettings));
+  el("colorCanvasBg").value = displaySettings.canvasBg;
+  el("colorTheme").value = displaySettings.theme;
+});
+
 el("browseButton").addEventListener("click", chooseFolder);
 el("openButton").addEventListener("click", openFolder);
 el("folderPath").addEventListener("keydown", (event) => { if (event.key === "Enter") openFolder(); });

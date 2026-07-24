@@ -16,6 +16,7 @@
       <span id="progressText">0 / 0 件確認済み</span>
       <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
     </div>
+    <button id="openSettingsButton" class="settings-button" type="button" title="表示設定" aria-label="表示設定">⚙</button>
   </header>
 
   <main>
@@ -177,6 +178,32 @@
       </div>
     </section>
   </main>
+
+  <dialog id="settingsDialog" class="settings-dialog">
+    <div class="settings-header">
+      <h2>表示設定</h2>
+      <button id="closeSettingsButton" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div class="settings-body">
+      <div class="settings-row">
+        <div>
+          <strong>アプリ全体の背景色</strong>
+          <span>画面全体の背景色です。</span>
+        </div>
+        <input id="colorCanvasBg" type="color" value="#f1f4ef">
+      </div>
+      <div class="settings-row">
+        <div>
+          <strong>テーマカラー</strong>
+          <span>ヘッダーやボタンなどに使われるアクセントカラーです。</span>
+        </div>
+        <input id="colorTheme" type="color" value="#1c6844">
+      </div>
+    </div>
+    <div class="settings-footer">
+      <button id="resetSettingsButton" class="text-button" type="button">初期設定に戻す</button>
+    </div>
+  </dialog>
 
   <dialog id="zoomDialog">
     <div class="zoom-toolbar">
