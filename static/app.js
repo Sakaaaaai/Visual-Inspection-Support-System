@@ -20,6 +20,11 @@ const state = {
 
 const el = (id) => document.getElementById(id);
 
+function animalDisplayLabel(animalText) {
+  const match = /（(.+)）/.exec(animalText || "");
+  return match ? match[1] : (animalText || "");
+}
+
 const ANIMAL_SHORTCUTS = {
   b: "boar（イノシシ）",
   k: "bear（クマ）",
@@ -270,6 +275,14 @@ async function loadRow(index) {
   }
 }
 
+function nextIndexForAdvance() {
+  if (state.animalFilter) {
+    const newPos = state.filterPos + 1;
+    return newPos < state.filterIndices.length ? state.filterIndices[newPos] : null;
+  }
+  return state.currentIndex < state.total - 1 ? state.currentIndex + 1 : null;
+}
+
 async function stepImage(delta) {
   if (state.animalFilter) {
     const newPos = state.filterPos + delta;
@@ -390,8 +403,8 @@ async function saveCurrent(advance = false) {
     state.dirty = false;
     updateSummary(payload);
     el("saveStatus").textContent = "Excelへ保存しました。";
-    if (advance && state.currentIndex < state.total - 1) {
-      const nextIndex = state.currentIndex + 1;
+    const nextIndex = advance ? nextIndexForAdvance() : null;
+    if (nextIndex !== null) {
       setBusy(false);
       await loadRow(nextIndex);
     } else {
@@ -452,14 +465,9 @@ async function holdCurrent(advance = false) {
     state.dirty = false;
     updateSummary(payload);
     el("saveStatus").textContent = "保留として保存しました。";
-    if (advance && state.currentIndex < state.total - 1) {
-      const nextIndex = state.currentIndex + 1;
-      setBusy(false);
-      await loadRow(nextIndex);
-    } else {
-      setBusy(false);
-      await loadRow(state.currentIndex);
-    }
+    const nextIndex = advance ? nextIndexForAdvance() : null;
+    setBusy(false);
+    await loadRow(nextIndex !== null ? nextIndex : state.currentIndex);
     return true;
   } catch (error) {
     el("saveStatus").textContent = "";
@@ -568,6 +576,28 @@ el("resetSettingsButton").addEventListener("click", () => {
   el("colorTheme").value = displaySettings.theme;
 });
 
+function renderShortcutLegend() {
+  const container = el("animalShortcutGrid");
+  container.replaceChildren();
+  Object.entries(ANIMAL_SHORTCUTS).forEach(([key, animal]) => {
+    const item = document.createElement("div");
+    item.className = "shortcut-key-item";
+    const kbd = document.createElement("kbd");
+    kbd.textContent = key.toUpperCase();
+    const label = document.createElement("span");
+    label.textContent = animalDisplayLabel(animal);
+    item.append(kbd, label);
+    container.append(item);
+  });
+}
+renderShortcutLegend();
+
+el("shortcutsButton").addEventListener("click", () => el("shortcutsDialog").showModal());
+el("closeShortcutsButton").addEventListener("click", () => el("shortcutsDialog").close());
+el("shortcutsDialog").addEventListener("click", (event) => {
+  if (event.target === el("shortcutsDialog")) el("shortcutsDialog").close();
+});
+
 el("browseButton").addEventListener("click", chooseFolder);
 el("openButton").addEventListener("click", openFolder);
 el("folderPath").addEventListener("keydown", (event) => { if (event.key === "Enter") openFolder(); });
@@ -593,6 +623,7 @@ el("bulkAnimalSelect").addEventListener("change", updateBulkCountState);
 el("aiInferButton").addEventListener("click", runAiInferSingle);
 el("aiInferBatchButton").addEventListener("click", runAiInferBatch);
 el("saveNextButton").addEventListener("click", () => saveCurrent(true));
+el("holdButton").addEventListener("click", () => holdCurrent(true));
 el("previousButton").addEventListener("click", () => stepImage(-1));
 el("nextButton").addEventListener("click", () => stepImage(1));
 el("nextIncompleteButton").addEventListener("click", nextIncomplete);
@@ -643,16 +674,24 @@ document.addEventListener("keydown", (event) => {
   if (event.ctrlKey && event.key.toLowerCase() === "s") {
     event.preventDefault();
     saveCurrent(false);
+  } else if (
+    (event.ctrlKey || event.metaKey) &&
+    event.key.toLowerCase() === "a" &&
+    !el("gridMode").classList.contains("hidden") &&
+    !["INPUT", "SELECT"].includes(event.target.tagName)
+  ) {
+    event.preventDefault();
+    selectAllCards();
   } else if (event.key === "Enter" && event.target.tagName !== "BUTTON") {
     event.preventDefault();
     saveCurrent(true);
-  } else if (["ArrowLeft", "a", "A"].includes(event.key) && !["INPUT", "SELECT"].includes(event.target.tagName)) {
+  } else if (["ArrowLeft", "a", "A"].includes(event.key) && !event.ctrlKey && !event.metaKey && !["INPUT", "SELECT"].includes(event.target.tagName)) {
     if (!el("gridMode").classList.contains("hidden") && gridState.currentAnimal) {
       if (gridState.currentPage > 0) loadGrid(gridState.currentAnimal, gridState.currentPage - 1);
     } else {
       stepImage(-1);
     }
-  } else if (["ArrowRight", "d", "D"].includes(event.key) && !["INPUT", "SELECT"].includes(event.target.tagName)) {
+  } else if (["ArrowRight", "d", "D"].includes(event.key) && !event.ctrlKey && !event.metaKey && !["INPUT", "SELECT"].includes(event.target.tagName)) {
     if (!el("gridMode").classList.contains("hidden") && gridState.currentAnimal) {
       if (gridState.currentPage < gridState.totalPages - 1) loadGrid(gridState.currentAnimal, gridState.currentPage + 1);
     } else {
@@ -847,7 +886,10 @@ function renderImageGrid(rows) {
     if (isReviewed) {
       const badge = document.createElement("span");
       badge.className = "grid-card-badge reviewed-badge";
-      badge.textContent = "確認済み";
+      badge.textContent = row.confirmedAnimal
+        ? `確認済み: ${animalDisplayLabel(row.confirmedAnimal)}`
+        : "確認済み";
+      badge.title = row.confirmedAnimal || "確認済み";
       card.append(badge);
     } else if (isHold) {
       const badge = document.createElement("span");
@@ -933,7 +975,7 @@ function renderPagination(currentPage, totalPages) {
 }
 
 // Select all / Deselect all
-el("selectAllButton").addEventListener("click", () => {
+function selectAllCards() {
   document.querySelectorAll(".grid-card").forEach((card) => {
     const index = parseInt(card.dataset.index);
     if (!gridState.checkedIndices.has(index)) {
@@ -942,7 +984,8 @@ el("selectAllButton").addEventListener("click", () => {
     }
   });
   updateBulkButtonLabel();
-});
+}
+el("selectAllButton").addEventListener("click", selectAllCards);
 
 el("deselectAllButton").addEventListener("click", () => {
   gridState.checkedIndices.clear();

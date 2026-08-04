@@ -57,7 +57,10 @@
               <span id="referenceBadge" class="badge reference hidden">参考画像</span>
               <span id="filterBadge" class="badge filter hidden"></span>
             </div>
-            <button id="zoomButton" class="text-button" type="button">画像を拡大</button>
+            <div style="display: flex; gap: 16px;">
+              <button id="shortcutsButton" class="text-button" type="button">⌨ ショートカット</button>
+              <button id="zoomButton" class="text-button" type="button">画像を拡大</button>
+            </div>
           </div>
           <div id="imageStage" class="image-stage">
             <img id="animalImage" alt="確認対象画像">
@@ -205,6 +208,36 @@
     </div>
     <div class="settings-footer">
       <button id="resetSettingsButton" class="text-button" type="button">初期設定に戻す</button>
+    </div>
+  </dialog>
+
+  <dialog id="shortcutsDialog" class="settings-dialog shortcuts-dialog">
+    <div class="settings-header">
+      <h2>キーボードショートカット</h2>
+      <button id="closeShortcutsButton" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div class="settings-body">
+      <div class="shortcuts-section">
+        <strong>共通</strong>
+        <ul class="shortcuts-list">
+          <li><span>保存して次へ</span><kbd>Enter</kbd></li>
+          <li><span>現在の入力を保存</span><kbd>Ctrl</kbd><kbd>S</kbd></li>
+          <li><span>前後の画像へ移動</span><kbd>←</kbd><kbd>→</kbd></li>
+          <li><span>絞り込み解除 / 拡大画面を閉じる / 選択解除</span><kbd>Esc</kbd></li>
+        </ul>
+      </div>
+      <div class="shortcuts-section">
+        <strong>動物名で絞り込み（1枚ずつ確認モード）</strong>
+        <div id="animalShortcutGrid" class="shortcut-key-grid"></div>
+      </div>
+      <div class="shortcuts-section">
+        <strong>動物別一覧モード</strong>
+        <ul class="shortcuts-list">
+          <li><span>すべて選択</span><kbd>Ctrl</kbd><kbd>A</kbd></li>
+          <li><span>選択解除</span><kbd>Esc</kbd></li>
+          <li><span>ページ移動</span><kbd>←</kbd><kbd>→</kbd></li>
+        </ul>
+      </div>
     </div>
   </dialog>
 

@@ -445,12 +445,14 @@ class AnimalWorkbook:
             image_path = None
             path_error = str(exc)
         status = get_status(manual_animal, manual_count)
+        confirmed_animal = (manual_animal or predicted_animal) if status == "reviewed" else None
         return {
             "index": index,
             "filename": _text(self.sheet.cell(excel_row, self.columns.filename).value),
             "predictedAnimal": predicted_animal,
             "predictedCount": predicted_count,
             "status": status,
+            "confirmedAnimal": confirmed_animal,
             "imageExists": bool(image_path and image_path.is_file()),
             "pathError": path_error,
         }
