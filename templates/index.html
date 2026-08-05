@@ -63,7 +63,9 @@
             </div>
           </div>
           <div id="imageStage" class="image-stage">
-            <img id="animalImage" alt="確認対象画像">
+            <div id="imageFrame" class="image-frame">
+              <img id="animalImage" alt="確認対象画像">
+            </div>
             <div id="imageError" class="image-error hidden">
               <strong>画像を表示できません</strong>
               <span id="imageErrorText"></span>
@@ -92,18 +94,6 @@
             <div><span>数</span><strong id="predictedCount"></strong></div>
             <div><span>デバイス</span><strong id="deviceValue"></strong></div>
           </div>
-
-          <div class="divider"></div>
-
-          <p class="section-label">AI再判定（実験的・汎用CLIPモデル）</p>
-          <div class="prediction-grid">
-            <div><span>AI再判定</span><strong id="aiAnimalValue">未実行</strong></div>
-            <div><span>確信度</span><strong id="aiConfidenceValue"></strong></div>
-          </div>
-          <button id="aiInferButton" class="button secondary full" type="button">この画像をAIで再判定</button>
-          <button id="aiInferBatchButton" class="button ghost full" type="button">未判定をまとめてAIで推論</button>
-          <p id="aiInferStatus" class="save-status" aria-live="polite"></p>
-          <p id="aiInferError" class="error-message hidden"></p>
 
           <div class="divider"></div>
 

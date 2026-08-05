@@ -9,7 +9,6 @@ from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
 
-from animal_assistant import ai_inference
 from animal_assistant.workbook import ANIMAL_OPTIONS, AnimalWorkbook, WorkbookFormatError
 
 
@@ -158,71 +157,6 @@ def save_review():
         return _error(f"保存できませんでした: {exc}")
     except (TypeError, ValueError, WorkbookFormatError) as exc:
         return _error(f"保存できませんでした: {exc}")
-
-
-@app.post("/api/ai-infer/<int:index_value>")
-def ai_infer_row(index_value: int):
-    try:
-        with session_lock:
-            book = _require_session()
-            if index_value < 0 or index_value >= len(book.rows):
-                return _error("対象行が範囲外です。", 404)
-            excel_row = book.rows[index_value]
-            image_path = book.image_path_for_row(excel_row)
-            if not image_path.is_file():
-                return _error("画像が見つからないため推論できません。")
-            animal, confidence = ai_inference.classify_image(image_path)
-            row = book.save_ai_prediction(index_value, animal, confidence)
-            return jsonify({"ok": True, "row": row, **_summary(book)})
-    except ai_inference.AIInferenceError as exc:
-        return _error(str(exc), 500)
-    except (OSError, WorkbookFormatError, ValueError) as exc:
-        return _error(str(exc))
-
-
-@app.post("/api/ai-infer-batch")
-def ai_infer_batch():
-    payload = request.get_json(silent=True) or {}
-    try:
-        limit = max(1, int(payload.get("limit", 10)))
-    except (TypeError, ValueError):
-        limit = 10
-    try:
-        with session_lock:
-            book = _require_session()
-
-            def is_pending(idx: int) -> bool:
-                excel_row = book.rows[idx]
-                if book.sheet.cell(excel_row, book.columns.ai_animal).value:
-                    return False
-                try:
-                    return book.image_path_for_row(excel_row).is_file()
-                except WorkbookFormatError:
-                    return False
-
-            processed = []
-            for idx in range(len(book.rows)):
-                if len(processed) >= limit:
-                    break
-                if not is_pending(idx):
-                    continue
-                excel_row = book.rows[idx]
-                image_path = book.image_path_for_row(excel_row)
-                animal, confidence = ai_inference.classify_image(image_path)
-                book.save_ai_prediction(idx, animal, confidence)
-                processed.append(idx)
-
-            remaining = sum(1 for idx in range(len(book.rows)) if is_pending(idx))
-            return jsonify({
-                "ok": True,
-                "processed": processed,
-                "remaining": remaining,
-                **_summary(book),
-            })
-    except ai_inference.AIInferenceError as exc:
-        return _error(str(exc), 500)
-    except (OSError, WorkbookFormatError, ValueError) as exc:
-        return _error(str(exc))
 
 
 @app.get("/api/next-unreviewed/<int:index_value>")

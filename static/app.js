@@ -15,10 +15,11 @@ const state = {
   animalFilter: null,
   filterIndices: [],
   filterPos: 0,
-  aiBatchRunning: false,
 };
 
 const el = (id) => document.getElementById(id);
+
+const OPTIONAL_COUNT_ANIMALS = ["man（ヒト）", "car（クルマ）"];
 
 function animalDisplayLabel(animalText) {
   const match = /（(.+)）/.exec(animalText || "");
@@ -63,7 +64,7 @@ function showError(target, message) {
 
 function setBusy(busy) {
   state.loading = busy;
-  ["browseButton", "openButton", "saveNextButton", "holdButton", "previousButton", "nextButton", "nextIncompleteButton", "nextHoldButton", "bulkConfirmButton", "bulkHoldButton", "aiInferButton"]
+  ["browseButton", "openButton", "saveNextButton", "holdButton", "previousButton", "nextButton", "nextIncompleteButton", "nextHoldButton", "bulkConfirmButton", "bulkHoldButton"]
     .forEach((id) => { if (el(id)) el(id).disabled = busy; });
 }
 
@@ -91,13 +92,10 @@ function renderRow(row, options = {}) {
   el("predictedAnimal").textContent = row.predictedAnimal || "（空欄）";
   el("predictedCount").textContent = row.predictedCount ?? "（空欄）";
   el("deviceValue").textContent = row.device || "（空欄）";
-  el("aiAnimalValue").textContent = row.aiAnimal || "未実行";
-  el("aiConfidenceValue").textContent = row.aiConfidence != null ? `${Math.round(row.aiConfidence * 100)}%` : "";
   el("animalSelect").value = row.selectedAnimal;
   el("countInput").value = row.manualCount ?? "";
   updateCountState();
   showError(el("saveError"), "");
-  showError(el("aiInferError"), "");
   if (!options.keepStatus) el("saveStatus").textContent = "";
 
   renderContextImages(row);
@@ -112,12 +110,53 @@ function renderRow(row, options = {}) {
   });
 }
 
+function fitImageFrame() {
+  const stage = el("imageStage");
+  const frame = el("imageFrame");
+  const image = el("animalImage");
+  if (!image.naturalWidth || !image.naturalHeight) return;
+  const stageW = stage.clientWidth;
+  const stageH = stage.clientHeight;
+  if (!stageW || !stageH) return;
+  const scale = Math.min(stageW / image.naturalWidth, stageH / image.naturalHeight);
+  frame.style.width = `${Math.round(image.naturalWidth * scale)}px`;
+  frame.style.height = `${Math.round(image.naturalHeight * scale)}px`;
+}
+
+const REVIEW_LAYOUT_MIN_IMAGE_WIDTH = 420;
+const REVIEW_LAYOUT_MIN_INPUT_WIDTH = 350;
+
+function fitReviewLayout() {
+  const shell = el("singleMode");
+  const stage = el("imageStage");
+  const image = el("animalImage");
+  if (shell.classList.contains("hidden")) return;
+  if (!image.naturalWidth || !image.naturalHeight) {
+    shell.style.gridTemplateColumns = "";
+    fitImageFrame();
+    return;
+  }
+  const stageH = stage.clientHeight;
+  const totalW = shell.clientWidth;
+  if (!stageH || !totalW) return;
+  const chromeW = stage.parentElement.clientWidth - stage.clientWidth;
+  const idealStageW = stageH * (image.naturalWidth / image.naturalHeight);
+  let imageColW = Math.round(idealStageW + chromeW);
+  imageColW = Math.max(
+    REVIEW_LAYOUT_MIN_IMAGE_WIDTH,
+    Math.min(imageColW, totalW - REVIEW_LAYOUT_MIN_INPUT_WIDTH)
+  );
+  shell.style.gridTemplateColumns = `${imageColW}px minmax(${REVIEW_LAYOUT_MIN_INPUT_WIDTH}px, 1fr)`;
+  fitImageFrame();
+}
+
 function showDisplayedImage(item) {
   state.displayedImage = item;
   const image = el("animalImage");
+  const imageFrame = el("imageFrame");
   const imageError = el("imageError");
   const source = `${item.sourceUrl}?v=${Date.now()}`;
-  image.classList.toggle("hidden", !item.imageExists);
+  imageFrame.classList.toggle("hidden", !item.imageExists);
   imageError.classList.toggle("hidden", item.imageExists);
   el("referenceBadge").classList.toggle("hidden", item.isCurrent);
   el("returnCurrentButton").classList.toggle("hidden", item.isCurrent);
@@ -129,6 +168,9 @@ function showDisplayedImage(item) {
     image.removeAttribute("src");
     el("zoomImage").removeAttribute("src");
     el("imageErrorText").textContent = item.error || item.imagePath;
+    imageFrame.style.width = "";
+    imageFrame.style.height = "";
+    fitReviewLayout();
   }
   document.querySelectorAll(".context-thumb").forEach((button) => {
     button.classList.toggle("active", button.dataset.displayId === item.displayId);
@@ -205,11 +247,12 @@ function changeZoom(amount) {
 }
 
 function updateCountState() {
-  const absent = el("animalSelect").value === "いない";
-  el("countInput").disabled = absent;
-  if (absent) el("countInput").value = "";
-  el("countHint").textContent = absent
-    ? "「いない」のため、目視による数は空欄で保存されます。"
+  const animal = el("animalSelect").value;
+  const noCount = animal === "いない" || OPTIONAL_COUNT_ANIMALS.includes(animal);
+  el("countInput").disabled = noCount;
+  if (noCount) el("countInput").value = "";
+  el("countHint").textContent = noCount
+    ? "この動物名のため、目視による数は空欄で保存されます。"
     : "0以上の整数を入力してください。";
 }
 
@@ -245,6 +288,7 @@ async function openFolder() {
     el("setupPanel").classList.add("hidden");
     el("reviewPanel").classList.remove("hidden");
     el("progressBlock").classList.remove("hidden");
+    fitReviewLayout();
   } catch (error) {
     showError(el("setupError"), error.message);
   } finally {
@@ -333,56 +377,6 @@ function updateFilterBadge() {
     badge.classList.remove("hidden");
   } else {
     badge.classList.add("hidden");
-  }
-}
-
-async function runAiInferSingle() {
-  if (state.loading || state.total === 0) return;
-  setBusy(true);
-  showError(el("aiInferError"), "");
-  el("aiInferStatus").textContent = "AI推論中…";
-  try {
-    const payload = await api(`/api/ai-infer/${state.currentIndex}`, { method: "POST" });
-    renderRow(payload.row, { keepStatus: true });
-    el("aiInferStatus").textContent = "AI推論が完了しました。";
-  } catch (error) {
-    el("aiInferStatus").textContent = "";
-    showError(el("aiInferError"), error.message);
-  } finally {
-    setBusy(false);
-  }
-}
-
-async function runAiInferBatch() {
-  if (state.aiBatchRunning) {
-    state.aiBatchRunning = false;
-    return;
-  }
-  state.aiBatchRunning = true;
-  el("aiInferBatchButton").textContent = "停止";
-  showError(el("aiInferError"), "");
-  try {
-    while (state.aiBatchRunning) {
-      const payload = await api("/api/ai-infer-batch", {
-        method: "POST",
-        body: JSON.stringify({ limit: 20 }),
-      });
-      el("aiInferStatus").textContent = `AI一括推論を実行中… 残り ${payload.remaining.toLocaleString()} 件`;
-      if (payload.processed.includes(state.currentIndex)) {
-        await loadRow(state.currentIndex);
-      }
-      if (payload.processed.length === 0 || payload.remaining === 0) {
-        el("aiInferStatus").textContent = payload.remaining === 0
-          ? "すべての画像のAI推論が完了しました。"
-          : "対象の画像がありません。";
-        break;
-      }
-    }
-  } catch (error) {
-    showError(el("aiInferError"), error.message);
-  } finally {
-    state.aiBatchRunning = false;
-    el("aiInferBatchButton").textContent = "未判定をまとめてAIで推論";
   }
 }
 
@@ -611,17 +605,16 @@ el("animalSelect").addEventListener("change", () => { state.dirty = true; update
 el("countInput").addEventListener("input", () => { state.dirty = true; });
 
 function updateBulkCountState() {
-  const absent = el("bulkAnimalSelect").value === "いない";
-  el("bulkCountInput").disabled = absent;
-  if (absent) el("bulkCountInput").value = "";
-  el("bulkCountHint").textContent = absent
-    ? "「いない」のため、目視による数は空欄で保存されます。"
+  const animal = el("bulkAnimalSelect").value;
+  const noCount = animal === "いない" || OPTIONAL_COUNT_ANIMALS.includes(animal);
+  el("bulkCountInput").disabled = noCount;
+  if (noCount) el("bulkCountInput").value = "";
+  el("bulkCountHint").textContent = noCount
+    ? "この動物名のため、目視による数は空欄で保存されます。"
     : "空欄の場合はAI予測の数が保存されます。";
 }
 el("bulkAnimalSelect").addEventListener("change", updateBulkCountState);
 
-el("aiInferButton").addEventListener("click", runAiInferSingle);
-el("aiInferBatchButton").addEventListener("click", runAiInferBatch);
 el("saveNextButton").addEventListener("click", () => saveCurrent(true));
 el("holdButton").addEventListener("click", () => holdCurrent(true));
 el("previousButton").addEventListener("click", () => stepImage(-1));
@@ -629,6 +622,8 @@ el("nextButton").addEventListener("click", () => stepImage(1));
 el("nextIncompleteButton").addEventListener("click", nextIncomplete);
 el("nextHoldButton").addEventListener("click", nextHold);
 el("returnCurrentButton").addEventListener("click", showCurrentImage);
+el("animalImage").addEventListener("load", fitReviewLayout);
+window.addEventListener("resize", fitReviewLayout);
 el("zoomButton").addEventListener("click", () => {
   if (!el("zoomImage").src) return;
   resetZoom();
@@ -746,6 +741,8 @@ function switchMode(mode) {
   el("gridMode").classList.toggle("hidden", isSingle);
   if (!isSingle) {
     loadAnimalSidebar();
+  } else {
+    fitReviewLayout();
   }
 }
 
@@ -886,10 +883,13 @@ function renderImageGrid(rows) {
     if (isReviewed) {
       const badge = document.createElement("span");
       badge.className = "grid-card-badge reviewed-badge";
+      const countText = row.confirmedCount != null ? `（${row.confirmedCount}）` : "";
       badge.textContent = row.confirmedAnimal
-        ? `確認済み: ${animalDisplayLabel(row.confirmedAnimal)}`
+        ? `確認済み: ${animalDisplayLabel(row.confirmedAnimal)}${countText}`
         : "確認済み";
-      badge.title = row.confirmedAnimal || "確認済み";
+      badge.title = row.confirmedAnimal
+        ? `${row.confirmedAnimal}${countText}`
+        : "確認済み";
       card.append(badge);
     } else if (isHold) {
       const badge = document.createElement("span");
